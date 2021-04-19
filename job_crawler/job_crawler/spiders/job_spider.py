@@ -1,45 +1,65 @@
 import scrapy
+from scrapy.crawler import CrawlerProcess
 
-
-class QuotesSpider(scrapy.Spider):
-    name = "quotes"
-
+class JobSpider(scrapy.Spider):
+    name = "jobsp"
+    allowed_domains = ['www.freelancer.com']
+    depth = 1
+    urls = ""
+    id = 0
     def start_requests(self):
-        urls = [
-            'http://quotes.toscrape.com/page/1/',
-            'http://quotes.toscrape.com/page/2/',
-        ]
+        urls = self.urls.split(' ')
         for url in urls:
-            yield scrapy.Request(url=url, callback=self.parse)
+            yield scrapy.Request(url=url, callback=self.parse,meta={'depth': 0 })
+        self.count += len(urls)
+
+
 
     def parse(self, response):
-        page = response.url.split("/")[-2]
-        filename = f'quotes-{page}.html'
-        with open(filename, 'wb') as f:
-            f.write(response.body)
-        self.log(f'Saved file {filename}')
 
-        #job title, location, skills, details, time expire, budget, similar jobs
+        c_depth = response.meta.get('depth')
+        print()
+        print(c_depth)
+        print()
 
-        #job title
-        #response.xpath('//h1[@class="PageProjectViewLogout-header-title"]/text()').get()
+        detail = ''.join(response.xpath('//*[@id="main"]/div/div/div/div[1]/section[1]/div/div[1]/div/p[not(@*)]/text()').getall())
+        yield  {
+            'id' : self.id,
+            'job title' : response.xpath('//h1[@class="PageProjectViewLogout-header-title"]/text()').get(),
+            'location' : response.xpath('//span[@class="PageProjectViewLogout-detail-reputation-item-locationItem"]/text()').get().strip(),
+            'skills' : response.xpath('//a[@class="PageProjectViewLogout-detail-tags-link--highlight"]/text()').getall(),
+            'details' : detail,
+            'time expire' : response.xpath('//span[@class="promotion-tag PageProjectViewLogout-promotionTag"]/text()').get().strip(),
+            'budget' : response.xpath('//p[@class="PageProjectViewLogout-header-byLine"]/text()').get()
+        }
+        self.id+=1
 
-        #location
-        #response.xpath('//span[@class="PageProjectViewLogout-detail-reputation-item-locationItem"]/text()').get().strip()
+        if c_depth < self.depth:
+            similar_jobs = response.xpath('//*[@id="main"]/div/div/div/div[2]/aside/section[2]/div/div[2]/ul/li/a/@href').getall()
+            for href in similar_jobs:
+                yield response.follow(href, callback=self.parse,meta={'depth': (c_depth+1) })
 
-        #skills
-        #response.xpath('//a[@class="PageProjectViewLogout-detail-tags-link--highlight"]/text()').getall()
+    #job title, location, skills, details, time expire, budget, similar jobs
+    #print(response.xpath('//h1[@class="PageProjectViewLogout-header-title"]/text()').get())
 
-        #details
-        #response.xpath('//p[not(@*)]/text()').getall()
-        #detail = (response.xpath('//p[not(@*)]/text()').getall())
-        #l = [i.strip('[]') for i in (response.xpath('//p[not(@*)]/text()').getall())]
+    #job title
+    #response.xpath('//h1[@class="PageProjectViewLogout-header-title"]/text()').get()
 
-        #time expire
-        #response.xpath('//span[@class="promotion-tag PageProjectViewLogout-promotionTag"]/text()').get().strip()
+    #location
+    #response.xpath('//span[@class="PageProjectViewLogout-detail-reputation-item-locationItem"]/text()').get().strip()
 
-        #budget
-        #response.xpath('//p[@class="PageProjectViewLogout-header-byLine"]/text()').get()
+    #skills
+    #response.xpath('//a[@class="PageProjectViewLogout-detail-tags-link--highlight"]/text()').getall()
 
-        #similar jobs
-        #//response.xpath('//*[@id="main"]/div/div/div/div[2]/aside/section[2]/div/div[2]/ul/li/a/@href').getall()
+    #details
+    #response.xpath('//*[@id="main"]/div/div/div/div[1]/section[1]/div/div[1]/div/p[not(@*)]/text()').getall()
+    #detail = (response.xpath('//*[@id="main"]/div/div/div/div[1]/section[1]/div/div[1]/div/p[not(@*)]/text()').getall())
+
+    #time expire
+    #response.xpath('//span[@class="promotion-tag PageProjectViewLogout-promotionTag"]/text()').get().strip()
+
+    #budget
+    #response.xpath('//p[@class="PageProjectViewLogout-header-byLine"]/text()').get()
+
+    #similar jobs
+    #//response.xpath('//*[@id="main"]/div/div/div/div[2]/aside/section[2]/div/div[2]/ul/li/a/@href').getall()
